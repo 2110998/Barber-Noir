@@ -643,13 +643,7 @@
           <label class="form-label">Serviço</label>
           <div class="select-wrap">
             <select class="form-select" id="inputService" onchange="updateSummary()">
-              <option value="">Selecione um serviço</option>
-              <option value="Corte Clássico — R$ 45">Corte Clássico — R$ 45</option>
-              <option value="Barba Completa — R$ 40">Barba Completa — R$ 40</option>
-              <option value="Combo Premium — R$ 80">Combo Premium — R$ 80</option>
-              <option value="Relaxamento — R$ 60">Relaxamento — R$ 60</option>
-              <option value="Platinado — R$ 120">Platinado — R$ 120</option>
-              <option value="Black Mask — R$ 50">Black Mask — R$ 50</option>
+              <option value="">Carregando serviços...</option>
             </select>
           </div>
         </div>
@@ -702,7 +696,7 @@
   </div>
 
   <script type="module">
-    import { db, collection, addDoc, getDocs, query, where, serverTimestamp } from './firebase-config.js';
+    import { db, collection, doc, getDocFromServer, addDoc, getDocsFromServer, query, where, serverTimestamp } from './firebase-config.js';
 
     // ── CURSOR ──
     const cur = document.getElementById('cursor'), ring = document.getElementById('cursorRing');
@@ -727,14 +721,39 @@
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    // Dias bloqueados manualmente pelo admin (ainda fixo aqui por simplicidade;
-    // pode futuramente vir de slotConfig no Firestore)
-    function isAvailable(date) {
+    // Cache da configuração de dia (aberto/fechado) definida pelo admin
+    const dayConfigCache = {};
+
+    // Busca no Firestore se o admin marcou esse dia como aberto/fechado.
+    // Se não existir configuração salva para o dia, usa o padrão (fecha domingo).
+    async function getDayConfig(dateStr, date) {
+      if (dayConfigCache[dateStr]) return dayConfigCache[dateStr];
+      try {
+        // getDocFromServer ignora qualquer cache local do SDK e força ler
+        // o valor mais atual direto do servidor do Firestore.
+        const snap = await getDocFromServer(doc(db, 'slotConfig', dateStr));
+        if (snap.exists()) {
+          dayConfigCache[dateStr] = snap.data();
+        } else {
+          const dow = date.getDay();
+          dayConfigCache[dateStr] = { open: dow !== 0, slots: {} };
+        }
+        return dayConfigCache[dateStr];
+      } catch (err) {
+        console.error('Erro ao buscar config do dia:', err);
+        const dow = date.getDay();
+        return { open: dow !== 0, slots: {} };
+      }
+    }
+
+    // Checa se o dia está disponível: não pode ser passado, e o admin precisa
+    // ter o dia marcado como aberto (ou sem configuração salva = padrão).
+    async function isAvailable(date) {
       const d = new Date(date); d.setHours(0,0,0,0);
       if (d < today) return false;
-      const dow = d.getDay(); // 0=dom
-      if (dow === 0) return false; // fecha domingo
-      return true;
+      const dateStr = fmtKey(d);
+      const cfg = await getDayConfig(dateStr, d);
+      return cfg.open !== false;
     }
 
     const allSlots = ['09:00','09:30','10:00','10:30','11:00','11:30',
@@ -744,17 +763,30 @@
     // Cache simples de horários ocupados por data, carregado do Firestore sob demanda
     const bookedCache = {};
 
-    // Busca no Firestore os horários já ocupados (status != cancelled) para uma data
+    // Retorna a lista de horários indisponíveis numa data: tanto os já ocupados
+    // por agendamento (pending/confirmed) quanto os que o admin desativou
+    // manualmente no painel (slotConfig.slots[horário] === false).
     async function getBookedFor(dateStr) {
       if (bookedCache[dateStr]) return bookedCache[dateStr];
       try {
+        // getDocsFromServer ignora qualquer cache local do SDK e força ler
+        // o valor mais atual direto do servidor do Firestore.
         const q = query(collection(db, 'agendamentos'), where('date', '==', dateStr));
-        const snap = await getDocs(q);
+        const snap = await getDocsFromServer(q);
         const booked = [];
         snap.forEach(docSnap => {
           const data = docSnap.data();
           if (data.status !== 'cancelled') booked.push(data.time);
         });
+
+        // Soma os horários que o admin desativou manualmente para esse dia
+        const cfg = await getDayConfig(dateStr, new Date(dateStr+'T12:00:00'));
+        if (cfg.slots) {
+          allSlots.forEach(slot => {
+            if (cfg.slots[slot] === false && !booked.includes(slot)) booked.push(slot);
+          });
+        }
+
         bookedCache[dateStr] = booked;
         return booked;
       } catch (err) {
@@ -769,7 +801,7 @@
     const monthsShort = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     let viewYear = today.getFullYear(), viewMonth = today.getMonth();
 
-    function renderCalendar() {
+    async function renderCalendar() {
       document.getElementById('calMonth').innerHTML = `${months[viewMonth]} <span>${viewYear}</span>`;
       const grid = document.getElementById('calGrid');
       grid.innerHTML = '';
@@ -788,8 +820,8 @@
         const el = document.createElement('div');
         el.textContent = d;
         const isToday = date.getTime() === today.getTime();
-        const avail = isAvailable(date);
         const isPast = date < today;
+        const avail = (isPast && !isToday) ? false : await isAvailable(date);
 
         if (isPast && !isToday) {
           el.className = 'cal-day past';
@@ -946,7 +978,10 @@
         : '—';
       document.getElementById('sumTime').textContent = selectedTime || '—';
       const svc = document.getElementById('inputService');
-      document.getElementById('sumService').textContent = svc && svc.value ? svc.value : '—';
+      const selected = svc && svc.value ? servicesCache.find(s => s.id === svc.value) : null;
+      document.getElementById('sumService').textContent = selected
+        ? `${selected.name} — R$ ${Number(selected.price).toFixed(2).replace('.',',')}`
+        : '—';
     }
 
     // ── FORM ──
@@ -982,9 +1017,15 @@
       const name = document.getElementById('inputName').value.trim();
       const phone = document.getElementById('inputPhone').value;
       const pass = document.getElementById('inputPass').value;
-      const svc = document.getElementById('inputService').value;
+      const svcId = document.getElementById('inputService').value;
+      const svcObj = servicesCache.find(s => s.id === svcId);
       const dateStr = fmtKey(selectedDate);
       const time = selectedTime;
+
+      if (!svcObj) {
+        alert('Selecione um serviço válido.');
+        return;
+      }
 
       btn.disabled = true;
       btn.querySelector('span').textContent = 'Enviando...';
@@ -1008,7 +1049,11 @@
           passHash,
           date: dateStr,
           time,
-          service: svc,
+          serviceName: svcObj.name,
+          servicePrice: Number(svcObj.price),
+          // Mantém "service" como texto combinado por compatibilidade com o admin
+          // (ex: cards e mensagens de WhatsApp que ainda usam esse campo único)
+          service: `${svcObj.name} — R$ ${Number(svcObj.price).toFixed(2).replace('.',',')}`,
           status: 'pending',
           createdAt: serverTimestamp()
         });
@@ -1024,7 +1069,7 @@
           <div class="modal-detail-row"><span class="modal-detail-key">WhatsApp</span><span class="modal-detail-val">${phone}</span></div>
           <div class="modal-detail-row"><span class="modal-detail-key">Data</span><span class="modal-detail-val">${selectedDate.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
           <div class="modal-detail-row"><span class="modal-detail-key">Horário</span><span class="modal-detail-val">${time}</span></div>
-          <div class="modal-detail-row"><span class="modal-detail-key">Serviço</span><span class="modal-detail-val">${svc}</span></div>
+          <div class="modal-detail-row"><span class="modal-detail-key">Serviço</span><span class="modal-detail-val">${svcObj.name} — R$ ${Number(svcObj.price).toFixed(2).replace('.',',')}</span></div>
           <div class="modal-detail-row"><span class="modal-detail-key">Status</span><span class="modal-detail-val" style="color:#E8C96A">Aguardando aprovação</span></div>
         `;
         document.getElementById('modalOverlay').classList.add('show');
@@ -1037,10 +1082,10 @@
       }
     }
 
-    // Busca direta no Firestore ignorando o cache (usada só na re-checagem do submit)
+    // Busca direta no servidor do Firestore, sem cache (usada só na re-checagem do submit)
     async function getBookedForFresh(dateStr) {
       const q = query(collection(db, 'agendamentos'), where('date', '==', dateStr));
-      const snap = await getDocs(q);
+      const snap = await getDocsFromServer(q);
       const booked = [];
       snap.forEach(docSnap => {
         const data = docSnap.data();
@@ -1070,6 +1115,28 @@
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
+    // ── SERVIÇOS (carregados do Firestore, definidos pelo admin) ──
+    let servicesCache = [];
+    async function loadServices() {
+      const select = document.getElementById('inputService');
+      try {
+        const snap = await getDocsFromServer(collection(db, 'servicos'));
+        servicesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+        if (servicesCache.length === 0) {
+          select.innerHTML = '<option value="">Nenhum serviço disponível</option>';
+          return;
+        }
+
+        select.innerHTML = '<option value="">Selecione um serviço</option>' +
+          servicesCache.map(s => `<option value="${s.id}">${s.name} — R$ ${Number(s.price).toFixed(2).replace('.',',')}</option>`).join('');
+      } catch (err) {
+        console.error('Erro ao carregar serviços:', err);
+        select.innerHTML = '<option value="">Erro ao carregar serviços</option>';
+      }
+    }
+
     // Expõe no window as funções usadas via onclick/oninput/onchange no HTML,
     // necessário porque type="module" não joga funções no escopo global por padrão.
     window.updateSummary = updateSummary;
@@ -1081,6 +1148,7 @@
     // INIT
     renderCalendar();
     updateSteps();
+    loadServices();
   </script>
 </body>
 </html>
