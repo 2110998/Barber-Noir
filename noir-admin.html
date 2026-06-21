@@ -253,6 +253,7 @@
 
     .bc-info {}
     .bc-name { font-size:16px; font-weight:600; color:var(--white); margin-bottom:4px; }
+    .bc-service { font-size:13px; color:var(--gold); letter-spacing:0.5px; margin-bottom:8px; font-weight:500; }
     .bc-details { display:flex; gap:16px; flex-wrap:wrap; }
     .bc-detail { font-size:11px; color:var(--white-dim); letter-spacing:1px; display:flex; align-items:center; gap:6px; }
     .bc-detail svg { color:var(--gold); }
@@ -388,6 +389,55 @@
       font-size:17px; color:var(--white-dim);
       border:1px dashed rgba(201,168,76,0.1);
     }
+
+    /* ── SERVIÇOS ── */
+    .service-add-row { display:flex; gap:12px; margin-bottom:28px; flex-wrap:wrap; }
+    .form-input {
+      flex:1; min-width:200px; background:var(--black-card); border:1px solid rgba(201,168,76,0.15);
+      color:var(--white); padding:13px 16px; font-family:'Montserrat',sans-serif; font-size:13px;
+      outline:none; transition:border-color 0.25s;
+    }
+    .form-input:focus { border-color:var(--gold); }
+    .form-input::placeholder { color:var(--white-faint); }
+    .btn-add-service {
+      background:var(--gold); color:var(--black); border:none; padding:13px 24px; cursor:pointer;
+      font-family:'Montserrat',sans-serif; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+      font-weight:600; transition:opacity 0.25s; white-space:nowrap;
+    }
+    .btn-add-service:hover { opacity:0.85; }
+    .services-list { display:flex; flex-direction:column; gap:10px; }
+    .service-row {
+      display:flex; align-items:center; justify-content:space-between; gap:16px;
+      background:var(--black-card); border:1px solid rgba(201,168,76,0.08);
+      padding:16px 20px;
+    }
+    .service-row-info { display:flex; align-items:baseline; gap:14px; }
+    .service-row-name { font-size:14px; color:var(--white); font-weight:500; }
+    .service-row-price { font-size:14px; color:var(--gold); font-weight:600; }
+    .service-row-actions { display:flex; gap:8px; }
+    .btn-svc-edit, .btn-svc-delete {
+      border:none; cursor:pointer; padding:8px 14px; font-family:'Montserrat',sans-serif;
+      font-size:10px; letter-spacing:1.5px; text-transform:uppercase; transition:all 0.25s;
+    }
+    .btn-svc-edit { background:rgba(201,168,76,0.1); color:var(--gold); border:1px solid rgba(201,168,76,0.25); }
+    .btn-svc-edit:hover { background:var(--gold); color:var(--black); }
+    .btn-svc-delete { background:var(--red-dim); color:var(--red); border:1px solid rgba(231,76,60,0.25); }
+    .btn-svc-delete:hover { background:var(--red); color:var(--white); }
+
+    /* ── RELATÓRIOS ── */
+    .report-month-row { display:flex; align-items:center; gap:20px; margin-bottom:32px; }
+    .report-month-label { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:3px; color:var(--white); }
+    .report-month-label span { color:var(--gold); }
+    .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; }
+    .report-card {
+      background:var(--black-card); border:1px solid rgba(201,168,76,0.1);
+      padding:24px; text-align:center;
+    }
+    .report-card-value { font-family:'Bebas Neue',sans-serif; font-size:32px; color:var(--gold); }
+    .report-card-label { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--white-dim); margin-top:6px; }
+    .report-card.confirmed .report-card-value { color:var(--green); }
+    .report-card.cancelled .report-card-value { color:var(--red); }
+    .report-card.revenue .report-card-value { font-size:26px; }
 
     /* ── EMPTY STATES ── */
     .empty-state {
@@ -542,6 +592,18 @@
           </svg>
           Minha Agenda
         </div>
+        <div class="nav-item" onclick="showSection('servicos',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M2 2h5l1 2h6v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2z"/>
+          </svg>
+          Serviços
+        </div>
+        <div class="nav-item" onclick="showSection('relatorios',this)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M2 14V8M6 14V4M10 14V9M14 14V2"/>
+          </svg>
+          Relatórios
+        </div>
       </nav>
       <div class="sidebar-footer">
         <div class="sidebar-user">
@@ -651,6 +713,32 @@
         </div>
       </section>
 
+      <!-- ── SERVIÇOS ── -->
+      <section class="page-section" id="sec-servicos">
+        <div class="section-title-row">
+          <div class="section-heading">GERENCIAR <em>SERVIÇOS</em></div>
+        </div>
+        <div class="service-add-row">
+          <input class="form-input" type="text" id="newServiceName" placeholder="Nome do serviço (ex: Corte Clássico)"/>
+          <input class="form-input" type="number" id="newServicePrice" placeholder="Preço (ex: 45)" min="0" step="0.01" style="max-width:160px"/>
+          <button class="btn-add-service" onclick="addService()">+ Adicionar</button>
+        </div>
+        <div class="services-list" id="servicesList"></div>
+      </section>
+
+      <!-- ── RELATÓRIOS ── -->
+      <section class="page-section" id="sec-relatorios">
+        <div class="section-title-row">
+          <div class="section-heading">RELATÓRIO <em>MENSAL</em></div>
+        </div>
+        <div class="report-month-row">
+          <button class="a-arrow" id="rPrev">&#8249;</button>
+          <div class="report-month-label" id="reportMonthLabel">JUNHO <span>2026</span></div>
+          <button class="a-arrow" id="rNext">&#8250;</button>
+        </div>
+        <div class="report-cards" id="reportCards"></div>
+      </section>
+
     </div><!-- /main-content -->
   </div><!-- /appShell -->
 
@@ -691,6 +779,8 @@
   let bookings = [];
   let unsubscribeBookings = null;
   let delayedWatcherInterval = null;
+  let services = [];
+  let unsubscribeServices = null;
 
   // Configuração de slots por dia (admin define), agora guardada no Firestore
   // na coleção 'slotConfig', documento por data (YYYY-MM-DD).
@@ -775,6 +865,7 @@
       document.getElementById('appShell').style.display = 'none';
       document.getElementById('loginInput').value = '';
       if (unsubscribeBookings) { unsubscribeBookings(); unsubscribeBookings = null; }
+      if (unsubscribeServices) { unsubscribeServices(); unsubscribeServices = null; }
       if (delayedWatcherInterval) { clearInterval(delayedWatcherInterval); delayedWatcherInterval = null; }
       bookings = [];
     }
@@ -786,6 +877,8 @@
     document.getElementById('todayLabel').textContent = now.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'});
     initAdminCal();
     listenBookings();
+    listenServices();
+    initReportNav();
     startDelayedWatcher();
   }
 
@@ -821,9 +914,11 @@
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
     document.getElementById('sec-'+id).classList.add('active');
     el.classList.add('active');
-    const titles = { dashboard:'DASHBOARD', agendamentos:'AGENDAMENTOS', agenda:'MINHA AGENDA' };
+    const titles = { dashboard:'DASHBOARD', agendamentos:'AGENDAMENTOS', agenda:'MINHA AGENDA', servicos:'SERVIÇOS', relatorios:'RELATÓRIOS' };
     document.getElementById('topbarTitle').textContent = titles[id] || id.toUpperCase();
     if (id === 'agendamentos') renderBookings('todos');
+    if (id === 'servicos') renderServices();
+    if (id === 'relatorios') renderReport();
     // Fecha sidebar no mobile ao navegar
     if (window.innerWidth <= 768) closeSidebar();
   }
@@ -870,7 +965,7 @@
           <div class="mini-time">${b.time}</div>
           <div class="mini-info">
             <div class="mini-name">${b.name}</div>
-            <div class="mini-svc">${fmtDate(b.date)}</div>
+            <div class="mini-svc">${b.service.split('—')[0].trim()} · ${fmtDate(b.date)}</div>
           </div>
           <div style="display:flex;gap:6px">
             <button style="padding:6px 10px;font-size:10px;letter-spacing:1px;background:var(--green-dim);color:var(--green);border:1px solid rgba(46,204,113,0.3);cursor:pointer;font-family:Montserrat,sans-serif;" onclick="acceptBooking('${b.id}')">✓</button>
@@ -912,11 +1007,8 @@
         </div>
         <div class="bc-info">
           <div class="bc-name">${b.name}</div>
+          <div class="bc-service">${b.service}</div>
           <div class="bc-details">
-            <div class="bc-detail">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 2h8v8H2z"/><path d="M2 5h8M5 2v8"/></svg>
-              ${b.service}
-            </div>
             <div class="bc-detail">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="2" width="10" height="8" rx="1"/><path d="M1 5h10M4 1v2M8 1v2"/></svg>
               ${fmtDate(b.date)}
@@ -987,6 +1079,148 @@
     if (!b) return;
     window.open(waLink(b.phone, msgPendenteDemorado(b)), '_blank');
     showToast('info', `Aviso de demora enviado para ${b.name}.`);
+  }
+
+  // ── SERVIÇOS ──
+  function listenServices() {
+    if (unsubscribeServices) unsubscribeServices();
+    unsubscribeServices = onSnapshot(collection(db, 'servicos'), (snap) => {
+      services = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      renderServices();
+    }, (err) => {
+      console.error('Erro ao escutar serviços:', err);
+    });
+  }
+
+  function renderServices() {
+    const list = document.getElementById('servicesList');
+    if (!list) return;
+    if (services.length === 0) {
+      list.innerHTML = `<div class="empty-state"><h3>Nenhum serviço cadastrado</h3><p>ADICIONE O PRIMEIRO SERVIÇO ACIMA</p></div>`;
+      return;
+    }
+    list.innerHTML = services.map(s => `
+      <div class="service-row">
+        <div class="service-row-info">
+          <span class="service-row-name">${s.name}</span>
+          <span class="service-row-price">R$ ${Number(s.price).toFixed(2).replace('.',',')}</span>
+        </div>
+        <div class="service-row-actions">
+          <button class="btn-svc-edit" onclick="editService('${s.id}')">Editar</button>
+          <button class="btn-svc-delete" onclick="deleteService('${s.id}')">Remover</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function addService() {
+    const nameInput = document.getElementById('newServiceName');
+    const priceInput = document.getElementById('newServicePrice');
+    const name = nameInput.value.trim();
+    const price = parseFloat(priceInput.value);
+
+    if (!name || isNaN(price) || price < 0) {
+      showToast('error', 'Preencha nome e preço válidos.');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'servicos'), { name, price });
+      nameInput.value = '';
+      priceInput.value = '';
+      showToast('success', `Serviço "${name}" adicionado!`);
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Não foi possível adicionar o serviço.');
+    }
+  }
+
+  async function editService(id) {
+    const s = services.find(s => s.id === id);
+    if (!s) return;
+    const newName = prompt('Nome do serviço:', s.name);
+    if (newName === null) return;
+    const newPriceStr = prompt('Preço (ex: 45.00):', s.price);
+    if (newPriceStr === null) return;
+    const newPrice = parseFloat(newPriceStr);
+    if (!newName.trim() || isNaN(newPrice) || newPrice < 0) {
+      showToast('error', 'Valores inválidos, edição cancelada.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'servicos', id), { name: newName.trim(), price: newPrice });
+      showToast('success', 'Serviço atualizado!');
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Não foi possível atualizar.');
+    }
+  }
+
+  async function deleteService(id) {
+    const s = services.find(s => s.id === id);
+    if (!s) return;
+    if (!confirm(`Remover o serviço "${s.name}"? Isso não afeta agendamentos já feitos.`)) return;
+    try {
+      await deleteDoc(doc(db, 'servicos', id));
+      showToast('info', 'Serviço removido.');
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Não foi possível remover.');
+    }
+  }
+
+  // ── RELATÓRIOS ──
+  const reportMonths = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  let rViewYear = new Date().getFullYear();
+  let rViewMonth = new Date().getMonth();
+
+  function renderReport() {
+    const label = document.getElementById('reportMonthLabel');
+    if (!label) return;
+    label.innerHTML = `${reportMonths[rViewMonth]} <span>${rViewYear}</span>`;
+
+    const monthBookings = bookings.filter(b => {
+      const [y,m] = (b.date||'').split('-').map(Number);
+      return y === rViewYear && (m-1) === rViewMonth;
+    });
+    const confirmed = monthBookings.filter(b => b.status === 'confirmed');
+    const cancelled = monthBookings.filter(b => b.status === 'cancelled');
+    const pending = monthBookings.filter(b => b.status === 'pending');
+    const revenue = confirmed.reduce((sum, b) => sum + (Number(b.servicePrice) || 0), 0);
+
+    document.getElementById('reportCards').innerHTML = `
+      <div class="report-card">
+        <div class="report-card-value">${monthBookings.length}</div>
+        <div class="report-card-label">Total no mês</div>
+      </div>
+      <div class="report-card confirmed">
+        <div class="report-card-value">${confirmed.length}</div>
+        <div class="report-card-label">Confirmados</div>
+      </div>
+      <div class="report-card cancelled">
+        <div class="report-card-value">${cancelled.length}</div>
+        <div class="report-card-label">Cancelados</div>
+      </div>
+      <div class="report-card">
+        <div class="report-card-value">${pending.length}</div>
+        <div class="report-card-label">Pendentes</div>
+      </div>
+      <div class="report-card revenue">
+        <div class="report-card-value">R$ ${revenue.toFixed(2).replace('.',',')}</div>
+        <div class="report-card-label">Valor arrecadado</div>
+      </div>
+    `;
+  }
+
+  function initReportNav() {
+    document.getElementById('rPrev').onclick = () => {
+      rViewMonth--; if (rViewMonth<0) { rViewMonth=11; rViewYear--; }
+      renderReport();
+    };
+    document.getElementById('rNext').onclick = () => {
+      rViewMonth++; if (rViewMonth>11) { rViewMonth=0; rViewYear++; }
+      renderReport();
+    };
   }
 
   // ── ADMIN CALENDAR ──
@@ -1172,6 +1406,9 @@
   window.rejectBooking = rejectBooking;
   window.cancelBooking = cancelBooking;
   window.notifyDelayed = notifyDelayed;
+  window.addService = addService;
+  window.editService = editService;
+  window.deleteService = deleteService;
   window.toggleDay = toggleDay;
   window.setAllSlots = setAllSlots;
   </script>
